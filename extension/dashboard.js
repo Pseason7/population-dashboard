@@ -12,6 +12,7 @@ let mapInitialized = false;
 let pendingMapFocus = null;  // 표→지도 이동 예약
 let leafletMap = null;
 let mapMarkers = [];
+let allMarkerDefs = [];
 let activeBoundary = null;
 const boundaryCache = {};
 let boundaryFetchId = 0;
@@ -477,6 +478,7 @@ function initMap() {
     updateMap(getFiltered());
     updateZoomInfo();
   });
+  leafletMap.on('moveend', renderVisibleMarkers);
 
   // 체크박스 이벤트 연결
   const cbMap = { 'cb-sido': 'sido', 'cb-sg': 'sg', 'cb-dong': 'dong' };
@@ -515,6 +517,7 @@ function updateMap(data) {
   if (activeBoundary) { leafletMap.removeLayer(activeBoundary); activeBoundary = null; }
   boundaryFetchId++;
   mapMarkers = [];
+  allMarkerDefs = [];
 
   const hasDongCoords = data.some(d => d.lat && d.lng && d.dong !== d.sigungu);
 
@@ -629,7 +632,7 @@ function updateMap(data) {
         iconAnchor: [radius,   radius]
       });
 
-      const marker = L.marker(g.coords, { icon }).bindPopup(`
+      const popupHtml = `
         <div style="font-family:'Malgun Gothic',Arial,sans-serif;font-size:13px;min-width:160px">
           <b style="color:#1a4fa0;font-size:14px">${g.label}</b><br>
           <span style="color:#888;font-size:11px">${g.sub}</span>
@@ -640,15 +643,28 @@ function updateMap(data) {
             합계: <b style="color:#1a4fa0;font-size:14px">${g.population.toLocaleString()}</b>명
           </div>
         </div>
-      `)
-      .on('click', (e) => {
-        L.DomEvent.stopPropagation(e);
-        fetchBoundary(g, level);
-      })
-      .addTo(leafletMap);
-
-      mapMarkers.push(marker);
+      `;
+      allMarkerDefs.push({ coords: g.coords, icon, popupHtml, g, level });
     });
+  });
+
+  renderVisibleMarkers();
+}
+
+// 현재 뷰포트 안의 마커만 렌더링
+function renderVisibleMarkers() {
+  mapMarkers.forEach(m => leafletMap.removeLayer(m));
+  mapMarkers = [];
+  if (!leafletMap || !allMarkerDefs.length) return;
+
+  const bounds = leafletMap.getBounds().pad(0.15);
+  allMarkerDefs.forEach(({ coords, icon, popupHtml, g, level }) => {
+    if (!bounds.contains(coords)) return;
+    const marker = L.marker(coords, { icon })
+      .bindPopup(popupHtml)
+      .on('click', (e) => { L.DomEvent.stopPropagation(e); fetchBoundary(g, level); })
+      .addTo(leafletMap);
+    mapMarkers.push(marker);
   });
 }
 
