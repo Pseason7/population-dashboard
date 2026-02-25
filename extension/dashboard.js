@@ -596,7 +596,14 @@ function updateMap(data) {
   }
 
   // ── 레이어별 마커 렌더링 ──────────────────────
-  function getPopColor(p) {
+  function getPopColor(p, level) {
+    if (level === 'dong') {
+      if (p <  1000) return { fill: '#a8d0f0', border: '#6aaad8' };
+      if (p <  2000) return { fill: '#5b9fd6', border: '#3a7fba' };
+      if (p <  3000) return { fill: '#2e75b6', border: '#1a5490' };
+      if (p <  4000) return { fill: '#f4a95a', border: '#d4842a' };
+                     return { fill: '#e8766a', border: '#c44d42' };
+    }
     if (p <  1000) return { fill: '#a8d0f0', border: '#6aaad8' };
     if (p <  2000) return { fill: '#5b9fd6', border: '#3a7fba' };
     if (p <  3000) return { fill: '#2e75b6', border: '#1a5490' };
@@ -617,7 +624,7 @@ function updateMap(data) {
         ? maxR
         : Math.round(minR + (maxR - minR) * (pop - minPop) / (maxPop - minPop));
       const diameter = radius * 2;
-      const { fill, border } = getPopColor(pop);
+      const { fill, border } = getPopColor(pop, level);
 
       let popLabel;
       if (pop >= 100000)     popLabel = (pop / 10000).toFixed(0) + '만';
