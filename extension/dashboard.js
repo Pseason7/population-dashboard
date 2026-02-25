@@ -13,12 +13,13 @@ let pendingMapFocus = null;  // 표→지도 이동 예약
 let leafletMap = null;
 let mapMarkers = [];
 let allMarkerDefs = [];
+let renderedMarkers = new Map(); // index → Leaflet marker
 let activeBoundary = null;
 const boundaryCache = {};
 let boundaryFetchId = 0;
 
-// 체크박스 표시 레벨 상태 (기본: 시/군/구 체크)
-let levelChecks = { sido: false, sg: true, dong: false };
+// 체크박스 표시 레벨 상태 (기본: 아무것도 선택 안 함)
+let levelChecks = { sido: false, sg: false, dong: false };
 
 function syncCheckboxUI() {
   const map = { 'cb-sido': 'sido', 'cb-sg': 'sg', 'cb-dong': 'dong' };
@@ -513,7 +514,8 @@ function updateZoomInfo() {
 function updateMap(data) {
   if (!leafletMap) return;
 
-  mapMarkers.forEach(m => leafletMap.removeLayer(m));
+  renderedMarkers.forEach(m => leafletMap.removeLayer(m));
+  renderedMarkers = new Map();
   if (activeBoundary) { leafletMap.removeLayer(activeBoundary); activeBoundary = null; }
   boundaryFetchId++;
   mapMarkers = [];
@@ -651,21 +653,26 @@ function updateMap(data) {
   renderVisibleMarkers();
 }
 
-// 현재 뷰포트 안의 마커만 렌더링
+// 현재 뷰포트 안의 마커만 렌더링 (증분 업데이트)
 function renderVisibleMarkers() {
-  mapMarkers.forEach(m => leafletMap.removeLayer(m));
-  mapMarkers = [];
   if (!leafletMap || !allMarkerDefs.length) return;
 
   const bounds = leafletMap.getBounds().pad(0.15);
-  allMarkerDefs.forEach(({ coords, icon, popupHtml, g, level }) => {
-    if (!bounds.contains(coords)) return;
-    const marker = L.marker(coords, { icon })
-      .bindPopup(popupHtml)
-      .on('click', (e) => { L.DomEvent.stopPropagation(e); fetchBoundary(g, level); })
-      .addTo(leafletMap);
-    mapMarkers.push(marker);
+  allMarkerDefs.forEach((def, i) => {
+    const inBounds = bounds.contains(def.coords);
+    const isRendered = renderedMarkers.has(i);
+    if (inBounds && !isRendered) {
+      const marker = L.marker(def.coords, { icon: def.icon })
+        .bindPopup(def.popupHtml)
+        .on('click', (e) => { L.DomEvent.stopPropagation(e); fetchBoundary(def.g, def.level); })
+        .addTo(leafletMap);
+      renderedMarkers.set(i, marker);
+    } else if (!inBounds && isRendered) {
+      leafletMap.removeLayer(renderedMarkers.get(i));
+      renderedMarkers.delete(i);
+    }
   });
+  mapMarkers = [...renderedMarkers.values()];
 }
 
 // ── 경계선 ────────────────────────────────────
