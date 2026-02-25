@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+geocode_cache.json
+boundaries.json
+대시보드.html
+인구조사.html
